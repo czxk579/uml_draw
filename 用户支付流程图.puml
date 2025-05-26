@@ -1,0 +1,177 @@
+@startuml 用户支付流程
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor 用户 as User
+participant "电商前端系统" as Frontend
+participant "订单服务" as OrderService
+participant "支付服务" as PaymentService
+participant "库存服务" as InventoryService
+participant "第三方支付平台" as ThirdPartyPayment
+participant "消息队列" as MessageQueue
+participant "用户通知服务" as NotificationService
+
+== 订单创建与支付 ==
+
+User -> Frontend : 选择商品并下单
+activate Frontend
+
+Frontend -> OrderService : 提交订单信息
+activate OrderService
+
+OrderService -> InventoryService : 检查并锁定库存
+activate InventoryService
+
+alt 库存充足
+    InventoryService --> OrderService : 库存锁定成功
+    OrderService -> OrderService : 创建订单
+    OrderService --> Frontend : 返回订单信息
+    
+    Frontend -> PaymentService : 请求创建支付单
+    activate PaymentService
+    
+    PaymentService -> PaymentService : 生成支付单
+    PaymentService -> ThirdPartyPayment : 请求支付链接
+    activate ThirdPartyPayment
+    
+    ThirdPartyPayment --> PaymentService : 返回支付链接/二维码
+    deactivate ThirdPartyPayment
+    
+    PaymentService --> Frontend : 返回支付链接/二维码
+    
+    Frontend --> User : 展示支付页面
+    
+    note right of Frontend
+      支付页面展示倒计时，通常为15分钟
+    end note
+    
+    deactivate Frontend
+    
+    User -> ThirdPartyPayment : 跳转到第三方支付平台并完成支付
+    activate ThirdPartyPayment
+    
+    ThirdPartyPayment -> PaymentService : 异步通知支付结果
+    deactivate ThirdPartyPayment
+    
+    activate PaymentService
+    
+    PaymentService -> PaymentService : 验证支付结果
+    
+    alt 支付成功
+        PaymentService -> OrderService : 通知支付成功
+        activate OrderService
+        
+        OrderService -> OrderService : 更新订单状态为已支付
+        OrderService -> InventoryService : 确认扣减库存
+        activate InventoryService
+        
+        InventoryService --> OrderService : 库存扣减成功
+        deactivate InventoryService
+        
+        OrderService -> MessageQueue : 发送订单支付成功消息
+        activate MessageQueue
+        
+        MessageQueue --> OrderService : 消息发送成功
+        deactivate MessageQueue
+        deactivate OrderService
+        
+        MessageQueue -> NotificationService : 消费订单支付成功消息
+        activate NotificationService
+        
+        NotificationService -> User : 发送支付成功通知
+        deactivate NotificationService
+        
+        PaymentService --> ThirdPartyPayment : 返回处理成功
+        
+    else 支付失败
+        PaymentService -> OrderService : 通知支付失败
+        activate OrderService
+        
+        OrderService -> OrderService : 更新订单状态为支付失败
+        OrderService -> InventoryService : 释放锁定库存
+        activate InventoryService
+        
+        InventoryService --> OrderService : 库存释放成功
+        deactivate InventoryService
+        
+        OrderService -> MessageQueue : 发送支付失败消息
+        activate MessageQueue
+        
+        MessageQueue --> OrderService : 消息发送成功
+        deactivate MessageQueue
+        deactivate OrderService
+        
+        MessageQueue -> NotificationService : 消费支付失败消息
+        activate NotificationService
+        
+        NotificationService -> User : 发送支付失败通知
+        deactivate NotificationService
+        
+        PaymentService --> ThirdPartyPayment : 返回处理成功
+    end
+    
+    deactivate PaymentService
+    
+else 库存不足
+    InventoryService --> OrderService : 库存不足
+    OrderService --> Frontend : 返回库存不足信息
+    activate Frontend
+    Frontend --> User : 提示库存不足，无法下单
+    deactivate Frontend
+    deactivate OrderService
+    deactivate InventoryService
+end
+
+== 支付超时处理 ==
+
+loop 定时检查未支付订单
+    PaymentService -> PaymentService : 检查超时未支付订单
+    activate PaymentService
+    
+    opt 订单支付超时
+        PaymentService -> OrderService : 通知支付超时
+        activate OrderService
+        
+        OrderService -> OrderService : 更新订单状态为已取消
+        OrderService -> InventoryService : 释放锁定库存
+        activate InventoryService
+        
+        InventoryService --> OrderService : 库存释放成功
+        deactivate InventoryService
+        
+        OrderService -> MessageQueue : 发送订单取消消息
+        activate MessageQueue
+        
+        MessageQueue --> OrderService : 消息发送成功
+        deactivate MessageQueue
+        deactivate OrderService
+        
+        MessageQueue -> NotificationService : 消费订单取消消息
+        activate NotificationService
+        
+        NotificationService -> User : 发送订单取消通知
+        deactivate NotificationService
+    end
+    
+    deactivate PaymentService
+end
+
+@enduml 

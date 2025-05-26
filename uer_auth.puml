@@ -1,0 +1,105 @@
+@startuml RBAC认证鉴权模型
+!pragma layout smetana
+skinparam defaultFontName "PingFang SC"
+skinparam classFontName "PingFang SC"
+skinparam noteFontName "PingFang SC"
+skinparam stereotypeFontName "PingFang SC"
+
+!define TABLE_BORDER_COLOR #2C3E50
+!define ENTITY_COLOR #3498DB
+!define RELATIONSHIP_COLOR #E74C3C
+
+skinparam class {
+  BackgroundColor ENTITY_COLOR
+  BorderColor TABLE_BORDER_COLOR
+  ArrowColor RELATIONSHIP_COLOR
+}
+
+class User {
+  +userId: String
+  +username: String
+  +password: String (encrypted)
+  +email: String
+  +phoneNumber: String
+  +status: Enum (ENABLED/DISABLED)
+  +createdTime: DateTime
+}
+
+class Role {
+  +roleId: String
+  +roleName: String
+  +description: String
+  +createdTime: DateTime
+}
+
+class Permission {
+  +permissionId: String
+  +permissionCode: String
+  +permissionName: String
+  +resourceType: String
+  +resourcePath: String
+  +operationType: String (GET/POST/etc)
+}
+
+class UserGroup {
+  +groupId: String
+  +groupName: String
+  +description: String
+}
+
+class Tenant {
+  +tenantId: String
+  +tenantName: String
+  +status: Enum (ACTIVE/INACTIVE)
+}
+
+class UserRole {
+  +userId: String
+  +roleId: String
+}
+
+class RolePermission {
+  +roleId: String
+  +permissionId: String
+}
+
+class UserGroupUser {
+  +groupId: String
+  +userId: String
+}
+
+class UserGroupRole {
+  +groupId: String
+  +roleId: String
+}
+
+User "1" -- "0..*" UserRole
+Role "1" -- "0..*" UserRole
+Role "1" -- "0..*" RolePermission
+Permission "1" -- "0..*" RolePermission
+User "1" -- "0..*" UserGroupUser
+UserGroup "1" -- "0..*" UserGroupUser
+UserGroup "1" -- "0..*" UserGroupRole
+Role "1" -- "0..*" UserGroupRole
+
+Tenant "1" -- "0..*" User
+Tenant "1" -- "0..*" Role
+Tenant "1" -- "0..*" Permission
+Tenant "1" -- "0..*" UserGroup
+
+note bottom of User
+  用户实体是系统中的账号，
+  可以拥有多个角色和所属多个用户组
+end note
+
+note bottom of Role
+  角色是权限的集合，
+  用户通过角色获得相应的权限
+end note
+
+note right of Tenant
+  多租户设计，所有实体都属于某个租户，
+  实现租户间的数据隔离
+end note
+
+@enduml

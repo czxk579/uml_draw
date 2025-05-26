@@ -1,0 +1,150 @@
+@startuml 用户登录注册流程
+skinparam defaultFontName "PingFang SC"
+skinparam ActivityBackgroundColor #FEFECE
+skinparam ActivityBorderColor #333333
+skinparam ArrowColor #333333
+
+|#E0FFFF|注册流程|
+start
+:用户选择注册方式;
+if (注册方式?) then (邮箱注册)
+  :输入邮箱和密码;
+  :系统发送验证邮件;
+  :用户点击邮件验证链接;
+  if (链接有效?) then (是)
+    :激活账号;
+  else (否)
+    :提示验证失败;
+    :重新发送验证邮件;
+    stop
+  endif
+else (手机号注册)
+  :输入手机号;
+  :系统发送短信验证码;
+  :用户输入验证码;
+  if (验证码正确?) then (是)
+    :设置密码;
+    :创建账号;
+  else (否)
+    :提示验证码错误;
+    :重新获取验证码;
+    stop
+  endif
+endif
+:注册成功;
+:跳转到登录页;
+stop
+
+|#FFE6CC|登录流程|
+start
+:用户选择登录方式;
+if (登录方式?) then (账号密码)
+  :输入账号(用户名/邮箱/手机号)和密码;
+  :验证账号密码;
+  if (账号存在?) then (否)
+    :提示账号不存在;
+    stop
+  else (是)
+    if (账号状态正常?) then (否)
+      :提示账号已锁定或禁用;
+      stop
+    else (是)
+      if (密码正确?) then (是)
+        if (是否开启双因素认证?) then (是)
+          :发送双因素验证码;
+          :用户输入验证码;
+          if (验证码正确?) then (是)
+            :验证通过;
+          else (否)
+            :验证失败;
+            stop
+          endif
+        else (否)
+          :验证通过;
+        endif
+      else (否)
+        :错误次数+1;
+        if (错误次数>限制?) then (是)
+          :锁定账号;
+          :提示账号已锁定;
+          stop
+        else (否)
+          :提示密码错误;
+          stop
+        endif
+      endif
+    endif
+  endif
+elseif (登录方式?) then (手机验证码)
+  :输入手机号;
+  :系统发送短信验证码;
+  :用户输入验证码;
+  if (验证码正确?) then (是)
+    :验证通过;
+  else (否)
+    :提示验证码错误;
+    stop
+  endif
+else (第三方OAuth)
+  :选择第三方平台(微信/支付宝);
+  :跳转到第三方授权页;
+  :用户授权;
+  :第三方回调;
+  if (授权成功?) then (是)
+    :获取用户信息;
+    if (是否首次登录?) then (是)
+      :创建关联账号;
+    else (否)
+      :关联已有账号;
+    endif
+    :验证通过;
+  else (否)
+    :提示授权失败;
+    stop
+  endif
+endif
+
+:生成JWT令牌;
+:设置令牌过期时间;
+:保存用户登录状态;
+:跳转到系统首页;
+stop
+
+|#E6FFCC|密码找回|
+start
+:用户点击"忘记密码";
+:选择找回方式;
+if (找回方式?) then (邮箱找回)
+  :输入注册邮箱;
+  :系统发送重置链接;
+  :用户点击链接;
+  if (链接有效?) then (是)
+    :进入重置密码页面;
+  else (否)
+    :提示链接已过期;
+    stop
+  endif
+else (手机找回)
+  :输入注册手机号;
+  :系统发送验证码;
+  :用户输入验证码;
+  if (验证码正确?) then (是)
+    :进入重置密码页面;
+  else (否)
+    :提示验证码错误;
+    stop
+  endif
+endif
+:用户设置新密码;
+:系统验证密码强度;
+if (密码强度达标?) then (是)
+  :更新密码;
+  :提示密码重置成功;
+  :跳转到登录页;
+else (否)
+  :提示密码不符合要求;
+  :重新设置密码;
+endif
+stop
+
+@enduml

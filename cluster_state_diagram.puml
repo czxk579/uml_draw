@@ -1,0 +1,115 @@
+@startuml 集群环境状态图
+
+scale 1000 width
+
+title 集群环境状态图
+
+skinparam state {
+  BackgroundColor LightBlue
+  BorderColor Gray
+}
+
+skinparam arrow {
+  FontSize 12
+  FontStyle bold
+}
+
+[*] --> 环境创建中
+
+state "环境交付" as Delivery {
+  state "环境创建状态" as Creation {
+    环境创建中 -[#Red]-> 环境创建失败 : 创建失败
+    环境创建中 -[#Green]-> 集群创建成功 : 创建成功
+    集群创建成功 -[#Blue]-> 服务部署中 : 开始部署服务
+    服务部署中 -[#Red]-> 服务部署失败 : 部署失败
+    服务部署中 -[#Green]-> 服务部署成功 : 部署成功
+    服务部署失败 -[#Orange]-> 服务部署中 : 重试部署
+  }
+
+  state "环境验证状态" as Validation {
+    未验证 -[#Blue]-> 验证中 : 执行自动化用例
+    验证中 -[#Red]-> 验证失败 : 验证失败
+    验证中 -[#Green]-> 验证成功 : 验证成功
+    验证失败 -[#Blue]-> 验证中 : 重新验证
+  }
+}
+
+state "环境使用" as Usage {
+  state "使用状态" as UseState {
+    未使用 -[#Blue]-> 使用中 : 环境就绪
+    使用中 -[#Orange]-> 回收中 : 开始回收
+    回收中 -[#Red]-> 已回收 : 回收完成
+    回收中 -[#Blue]-> 使用中 : 回收取消
+  }
+
+  state "开关机状态" as PowerState {
+    未开机 -[#Blue]-> 开机中 : 用户触发开机
+    开机中 -[#Red]-> 开机失败 : 开机失败
+    开机中 -[#Green]-> 运行中 : 开机成功
+    运行中 -[#Orange]-> 关机中 : 开始关机
+    关机中 -[#Red]-> 关机失败 : 关机失败
+    关机中 -[#Purple]-> 已关机 : 关机成功
+    已关机 -[#Blue]-> 开机中 : 重新开机
+    开机失败 -[#Blue]-> 开机中 : 重试开机
+    关机失败 -[#Orange]-> 关机中 : 重试关机
+  }
+}
+
+' 服务部署成功后的默认状态设置
+服务部署成功 -[#Green]down-> 未验证 : 设置默认验证状态
+服务部署成功 -[#Green]down-> 使用中 : 设置为使用中
+服务部署成功 -[#Green]down-> 运行中 : 设置为运行中
+
+' 默认状态关系
+' 环境创建中 -[#DarkGray]down-> 未验证
+' 环境创建中 -[#DarkGray]down-> 未使用
+' 环境创建中 -[#DarkGray]down-> 未开机
+
+' 环境创建失败 -[#DarkGray]down-> 未验证
+' 环境创建失败 -[#DarkGray]down-> 未使用
+' 环境创建失败 -[#DarkGray]down-> 未开机
+
+服务部署失败 -[#Red]down-> 未验证
+服务部署失败 -[#Red]down-> 未使用
+服务部署失败 -[#Red]down-> 未开机
+
+note right of Delivery #LightYellow
+  环境交付包含环境创建和环境验证两个子状态
+end note
+
+note right of Usage #LightYellow
+  环境使用包含使用状态和开关机状态两个子状态
+end note
+
+note top of Validation #LightGreen
+  当用户执行自动化用例时，环境验证状态从"未验证"转换为"验证中"
+end note
+
+note top of PowerState #Lavender
+  当用户触发开机时，开关机状态从"未开机"转换为"开机中"
+end note
+
+note top of UseState #LightBlue
+  当环境创建状态为服务部署成功时，使用状态自动设置为"使用中"
+end note
+
+note bottom of Creation #MistyRose
+  当环境创建状态为非服务部署成功状态时，环境验证状态、使用状态和开关机状态
+  分别为默认的"未验证"、"未使用"和"未开机"
+  
+  当环境创建状态为服务部署成功状态时，环境验证状态、使用状态和开关机状态
+  分别为默认的"未验证"、"使用中"和"运行中"
+end note
+
+legend right
+  <b>颜色说明</b>
+  |= 颜色 |= 目标状态类型 |
+  |<#Green>| 成功状态 |
+  |<#Blue>| 进行中状态 |
+  |<#Red>| 失败状态 |
+  |<#Orange>| 变更状态 |
+  |<#Purple>| 完成状态 |
+  |<#DarkGray>| 默认状态 |
+endlegend
+
+@enduml
