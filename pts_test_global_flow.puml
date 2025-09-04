@@ -1,0 +1,110 @@
+@startuml 测试环境Global站点压测链路
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor "用户/PTS压测" as User
+participant "ALB/NLB" as LoadBalancer
+participant "Kong网关" as Kong
+participant "业务Pod" as BusinessPod
+
+== 测试环境Global站点压测链路 ==
+
+note over User
+  测试环境链路相对简化
+  没有DNS解析和WAF防护
+  直接访问负载均衡器
+end note
+
+User -> LoadBalancer : 发起压测请求\n(直接访问LB)
+activate LoadBalancer
+
+note right of LoadBalancer
+  负载均衡器(ALB/NLB)
+  - ALB: 应用层负载均衡(HTTP/HTTPS)
+  - NLB: 网络层负载均衡(TCP/UDP)
+  - 测试环境配置相对简单
+  - 支持蓝绿部署和灰度发布
+end note
+
+LoadBalancer -> LoadBalancer : 负载均衡算法选择\n(轮询/加权轮询/最少连接)
+
+LoadBalancer -> Kong : 转发请求到API网关
+activate Kong
+
+note right of Kong
+  Kong API网关(测试环境)
+  - 服务路由和转发
+  - 基础的限流控制
+  - 简化的认证机制
+  - 测试环境插件配置
+  - 开发调试支持
+end note
+
+Kong -> Kong : 路由匹配和转发策略
+
+alt 路由匹配成功
+    Kong -> BusinessPod : 转发请求到业务服务
+    activate BusinessPod
+    
+    note right of BusinessPod
+      业务服务Pod(测试环境)
+      - 测试版本代码
+      - 模拟数据和服务
+      - 调试模式开启
+      - 日志级别详细
+      - 性能监控简化
+    end note
+    
+    BusinessPod -> BusinessPod : 执行业务逻辑处理
+    
+    alt 业务处理成功
+        BusinessPod --> Kong : 返回业务响应
+        deactivate BusinessPod
+        Kong --> LoadBalancer : 返回处理结果
+        deactivate Kong
+        LoadBalancer --> User : 返回最终响应
+        deactivate LoadBalancer
+        
+    else 业务处理异常
+        BusinessPod --> Kong : 返回错误信息
+        deactivate BusinessPod
+        Kong --> LoadBalancer : 返回错误响应
+        deactivate Kong
+        LoadBalancer --> User : 返回错误信息
+        deactivate LoadBalancer
+    end
+    
+else 路由匹配失败
+    Kong --> LoadBalancer : 返回404 Not Found
+    deactivate Kong
+    LoadBalancer --> User : 返回路由错误信息
+    deactivate LoadBalancer
+end
+
+note over User, BusinessPod
+  测试环境特点:
+  - 链路简化，便于调试
+  - 无安全防护组件
+  - 快速迭代和验证
+  - 支持压测和性能调优
+end note
+
+@enduml 

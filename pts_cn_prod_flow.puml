@@ -1,0 +1,116 @@
+@startuml 产线环境CN站点压测链路
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor "用户/PTS压测" as User
+participant "DNS" as DNS
+participant "DCND(WAF)" as DCND
+participant "ALB/NLB" as LoadBalancer
+participant "Kong网关" as Kong
+participant "业务Pod" as BusinessPod
+
+== 产线环境CN站点压测链路 ==
+
+User -> DNS : 发起压测请求\n(域名解析)
+activate DNS
+DNS --> User : 返回IP地址
+deactivate DNS
+
+User -> DCND : HTTP/HTTPS请求
+activate DCND
+
+note right of DCND
+  DCND Web应用防火墙
+  - DDoS防护
+  - CC攻击防护
+  - SQL注入防护
+  - XSS攻击防护
+  - 自定义安全规则
+end note
+
+DCND -> DCND : WAF安全检查和过滤
+alt 请求通过WAF检查
+    DCND -> LoadBalancer : 转发请求到负载均衡器
+    activate LoadBalancer
+    
+    note right of LoadBalancer
+      负载均衡器(ALB/NLB)
+      - 应用负载均衡(ALB): L7层负载均衡
+      - 网络负载均衡(NLB): L4层负载均衡
+      - 流量分发和健康检查
+      - 高可用性保障
+    end note
+    
+    LoadBalancer -> LoadBalancer : 负载均衡策略选择
+    LoadBalancer -> Kong : 转发请求到API网关
+    activate Kong
+    
+    note right of Kong
+      Kong API网关
+      - 服务路由和发现
+      - 限流和熔断
+      - 认证和鉴权
+      - 插件扩展
+      - 监控和日志
+    end note
+    
+    Kong -> Kong : API路由匹配和策略执行
+    
+    alt 通过网关策略检查
+        Kong -> BusinessPod : 转发请求到业务服务
+        activate BusinessPod
+        
+        note right of BusinessPod
+          业务服务Pod
+          - 微服务架构
+          - 容器化部署
+          - 自动伸缩
+          - 服务治理
+        end note
+        
+        BusinessPod -> BusinessPod : 执行业务逻辑
+        BusinessPod --> Kong : 返回业务处理结果
+        deactivate BusinessPod
+        
+        Kong --> LoadBalancer : 返回响应
+        deactivate Kong
+        
+        LoadBalancer --> DCND : 返回响应
+        deactivate LoadBalancer
+        
+        DCND --> User : 返回最终响应
+        deactivate DCND
+        
+    else 被网关策略拦截
+        Kong --> LoadBalancer : 返回策略拦截响应
+        deactivate Kong
+        LoadBalancer --> DCND : 返回拦截响应
+        deactivate LoadBalancer
+        DCND --> User : 返回拦截信息
+        deactivate DCND
+    end
+    
+else 被WAF拦截
+    DCND --> User : 返回WAF拦截信息\n(403 Forbidden等)
+    deactivate DCND
+end
+
+@enduml 

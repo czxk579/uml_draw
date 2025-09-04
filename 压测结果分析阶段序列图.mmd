@@ -1,0 +1,43 @@
+sequenceDiagram
+    title 压测结果分析阶段序列图
+    
+    participant Test as 测试团队
+    participant Ops as 运维团队
+    participant Dev as 开发团队
+    participant ENV as PTEST环境
+    participant Monitor as 监控系统
+
+    rect rgb(240, 248, 255)
+        Note over Test, Monitor: 数据收集和分析
+        Test->>Monitor: 收集性能数据<br/>(响应时间、吞吐量、错误率)
+        Monitor->>Test: 返回完整监控数据
+        Test->>ENV: 获取火焰图数据
+        ENV->>Test: 返回火焰图分析数据
+        Test->>Test: 瓶颈分析<br/>(识别性能瓶颈点)
+    end
+    
+    rect rgb(255, 248, 240)
+        Note over Test, Monitor: 问题修复和优化
+        Test->>Dev: 提交性能问题报告
+        Dev->>Dev: 代码优化
+        Dev->>Ops: 数据库优化建议
+        Ops->>Ops: 缓存策略调整
+        Test->>Ops: 容量规划建议
+        Ops->>Ops: 制定扩容方案
+    end
+    
+    rect rgb(245, 255, 245)
+        Note over Test, Monitor: 环境清理
+        Ops->>ENV: 关闭PTEST环境
+        ENV->>Ops: 环境关闭完成
+        Ops->>Monitor: 更新生产监控配置
+        Monitor->>Ops: 监控配置更新完成
+    end
+    
+    rect rgb(250, 250, 250)
+        Note over Test, Monitor: 文档和知识沉淀
+        Test->>Test: 编写压测报告
+        Test->>Test: 经验总结
+        Test->>Test: 优化压测流程
+        Test->>Test: 制定应急预案
+    end

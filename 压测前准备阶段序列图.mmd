@@ -1,0 +1,43 @@
+sequenceDiagram
+    title 压测前准备阶段序列图
+    
+    participant Test as 测试团队
+    participant Ops as 运维团队
+    participant Dev as 开发团队
+    participant ENV as PTEST环境
+    participant Monitor as 监控系统
+
+    rect rgb(240, 248, 255)
+        Note over Test, Monitor: 压测计划制定
+        Test->>Test: 制定压测计划<br/>(目标、范围、时间窗口)
+        Test->>Test: 确认压测时间<br/>(大促前1-2周)
+        Test->>Test: 设计压测场景<br/>(基于历史数据)
+        Test->>Test: 编写压测脚本
+    end
+    
+    rect rgb(245, 255, 245)
+        Note over Test, Monitor: 环境搭建
+        par 并行环境准备
+            Ops->>ENV: 搭建PTEST环境<br/>(网络、安全组配置)
+        and
+            Ops->>ENV: 准备数据库<br/>(RDS、Redis、MongoDB等)
+        and
+            Ops->>Monitor: 部署监控组件<br/>(Prometheus、Grafana)
+        and
+            Ops->>ENV: 配置网络安全<br/>(LB、IP限制)
+        end
+        
+        Ops->>ENV: 环境安全检查
+        ENV->>Ops: 确认环境隔离
+    end
+    
+    rect rgb(255, 248, 240)
+        Note over Test, Monitor: 环境配置
+        Ops->>ENV: 删除上次压测数据
+        Ops->>ENV: 同步DB表结构和数据
+        Ops->>ENV: 同步UAT环境KV配置
+        Ops->>ENV: 部署服务<br/>(CPU/内存与产线一致)
+        Dev->>ENV: 开启火焰图开关
+        Test->>ENV: 准备压测数据
+        ENV->>Ops: 环境准备完成
+    end

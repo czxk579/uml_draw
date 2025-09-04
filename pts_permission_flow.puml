@@ -1,0 +1,137 @@
+@startuml PTS平台权限控制流程图
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor "运维人员" as Admin
+participant "权限控制接口" as API
+participant "阿里云RAM服务" as RAM
+participant "PTS平台" as PTS
+actor "用户" as User
+
+== 准备阶段（一次性操作） ==
+
+Admin -> RAM: 创建公共管理账号或申请AccessKey
+activate RAM
+RAM --> Admin: 返回账号/AccessKey信息
+deactivate RAM
+
+Admin -> RAM: 申请RAM相关权限
+activate RAM
+RAM --> Admin: 授权成功
+deactivate RAM
+
+Admin -> RAM: 创建自定义权限策略(禁用压测)
+activate RAM
+note right
+  创建一个禁止执行压测的
+  自定义权限策略
+end note
+RAM --> Admin: 创建成功，返回策略ID
+deactivate RAM
+
+== 大促前：禁用压测权限 ==
+
+Admin -> API: POST /pts/permission_control\n{user_group: [], permissions_strategy: "禁用策略"}
+activate API
+
+API -> RAM: 调用CreatePolicy接口创建权限策略
+activate RAM
+RAM --> API: 返回策略创建结果
+deactivate RAM
+
+alt 绑定所有用户
+    API -> RAM: 获取所有用户列表
+    activate RAM
+    RAM --> API: 返回用户列表
+    deactivate RAM
+    
+    loop 对每个用户
+        API -> RAM: 调用AttachPolicyToUser接口\n绑定禁用权限策略
+        activate RAM
+        RAM --> API: 绑定成功
+        deactivate RAM
+    end
+    
+else 绑定指定用户组
+    loop 对指定用户组中的每个用户
+        API -> RAM: 调用AttachPolicyToUser接口\n绑定禁用权限策略
+        activate RAM
+        RAM --> API: 绑定成功
+        deactivate RAM
+    end
+end
+
+API --> Admin: 返回操作结果
+deactivate API
+
+== 用户尝试使用PTS ==
+
+User -> PTS: 登录并尝试执行压测
+activate PTS
+PTS -> RAM: 检查用户权限
+activate RAM
+RAM --> PTS: 返回无权限(策略限制)
+deactivate RAM
+PTS --> User: 提示无权限执行压测
+deactivate PTS
+
+== 大促后：恢复压测权限 ==
+
+Admin -> API: POST /pts/permission_control\n{user_group: [], permissions_strategy: ""}
+activate API
+
+alt 解绑所有用户
+    API -> RAM: 获取所有用户列表
+    activate RAM
+    RAM --> API: 返回用户列表
+    deactivate RAM
+    
+    loop 对每个用户
+        API -> RAM: 调用DetachPolicyFromUser接口\n解绑禁用权限策略
+        activate RAM
+        RAM --> API: 解绑成功
+        deactivate RAM
+    end
+    
+else 解绑指定用户组
+    loop 对指定用户组中的每个用户
+        API -> RAM: 调用DetachPolicyFromUser接口\n解绑禁用权限策略
+        activate RAM
+        RAM --> API: 解绑成功
+        deactivate RAM
+    end
+end
+
+API --> Admin: 返回操作结果
+deactivate API
+
+== 用户恢复使用PTS ==
+
+User -> PTS: 登录并尝试执行压测
+activate PTS
+PTS -> RAM: 检查用户权限
+activate RAM
+RAM --> PTS: 返回有权限
+deactivate RAM
+PTS --> User: 允许执行压测
+deactivate PTS
+
+@enduml 

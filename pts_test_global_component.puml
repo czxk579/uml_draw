@@ -1,0 +1,196 @@
+@startuml 测试环境Global站点架构图
+skinparam defaultFontName "PingFang SC"
+skinparam roundcorner 10
+skinparam shadowing false
+
+' 定义颜色方案
+skinparam component {
+    BackgroundColor #E8F4FD
+    BorderColor #2C3E50
+}
+
+skinparam package {
+    BackgroundColor #F8F9FA
+    BorderColor #2C3E50
+    FontColor #2C3E50
+    FontSize 14
+}
+
+skinparam node {
+    BackgroundColor #D5E8D4
+    BorderColor #82B366
+    FontColor #2C3E50
+}
+
+skinparam database {
+    BackgroundColor #FFF2CC
+    BorderColor #D6B656
+}
+
+skinparam cloud {
+    BackgroundColor #FFE6CC
+    BorderColor #D79B00
+}
+
+' 客户端层
+package "测试客户端层" #FFE6CC {
+    [PTS压测工具] #FFF2CC
+    [开发测试脚本] #FFF2CC
+    [性能测试工具] #FFF2CC
+    
+    note right of [PTS压测工具]
+        测试环境压测工具
+        - 功能测试验证
+        - 性能基准测试
+        - 回归测试自动化
+        - 调试模式支持
+    end note
+}
+
+' 负载均衡层（简化）
+package "负载均衡层" #D5E8D4 {
+    component [ALB测试负载均衡] #82B366
+    interface "测试入口" as alb_in
+    interface "流量分发" as alb_out
+    
+    component [NLB测试负载均衡] #A9DFBF
+    interface "网络入口" as nlb_in
+    interface "TCP分发" as nlb_out
+    
+    note right of [ALB测试负载均衡]
+        测试环境ALB
+        - 简化配置
+        - 快速部署
+        - 蓝绿部署支持
+        - 灰度发布
+    end note
+    
+    note right of [NLB测试负载均衡]
+        测试环境NLB
+        - 基础负载均衡
+        - 开发调试友好
+        - 低延迟转发
+    end note
+}
+
+' API网关层
+package "API网关层" #EBF5FB {
+    component [Kong测试网关] #5DADE2
+    interface "API测试入口" as kong_in
+    interface "服务路由" as kong_out
+    
+    note right of [Kong测试网关]
+        测试环境Kong网关
+        - 开发者友好配置
+        - 详细日志输出
+        - 插件调试模式
+        - Mock服务支持
+        - API文档集成
+    end note
+}
+
+' 业务服务层
+package "测试业务服务层" #E8F8F5 {
+    node "测试Kubernetes集群" #A9DFBF {
+        component [用户服务测试Pod] #58D68D
+        component [订单服务测试Pod] #58D68D
+        component [支付服务测试Pod] #58D68D
+        component [Mock服务Pod] #F39C12
+        
+        database "测试数据库" #F7DC6F
+        database "测试Redis" #EC7063
+        database "测试消息队列" #BB8FCE
+        database "文件存储" #AED6F1
+    }
+    
+    note right of [用户服务测试Pod]
+        测试环境微服务
+        - 测试数据预置
+        - 调试日志详细
+        - 热重载支持
+        - 性能监控简化
+    end note
+    
+    note right of [Mock服务Pod]
+        Mock服务
+        - 模拟第三方接口
+        - 可配置响应
+        - 延迟模拟
+        - 异常场景模拟
+    end note
+}
+
+' 开发工具层
+package "开发测试工具层" #F4ECF7 {
+    [Swagger UI] #D2B4DE
+    [测试数据管理] #BB8FCE
+    [日志查看器] #AED6F1
+    [性能监控面板] #F8C471
+    [数据库管理工具] #82E0AA
+    
+    note right of [Swagger UI]
+        API文档和测试
+        - 接口文档自动生成
+        - 在线API测试
+        - 参数验证
+        - 响应示例
+    end note
+}
+
+' 连接关系
+[PTS压测工具] --> alb_in : HTTP/HTTPS请求
+[开发测试脚本] --> nlb_in : TCP/UDP请求
+[性能测试工具] --> alb_in : 性能测试
+
+alb_out --> kong_in : 应用层流量
+nlb_out --> kong_in : 网络层流量
+
+kong_out --> [用户服务测试Pod] : 用户API
+kong_out --> [订单服务测试Pod] : 订单API
+kong_out --> [支付服务测试Pod] : 支付API
+kong_out --> [Mock服务Pod] : Mock API
+
+[用户服务测试Pod] --> "测试数据库" : 用户数据
+[订单服务测试Pod] --> "测试数据库" : 订单数据
+[支付服务测试Pod] --> "测试Redis" : 缓存数据
+[Mock服务Pod] --> "文件存储" : 模拟文件
+
+[用户服务测试Pod] --> "测试消息队列" : 异步消息
+[订单服务测试Pod] --> "测试消息队列" : 事件消息
+
+' 开发工具连接
+[用户服务测试Pod] ..> [Swagger UI] : API文档
+[订单服务测试Pod] ..> [日志查看器] : 日志输出
+[支付服务测试Pod] ..> [性能监控面板] : 性能数据
+"测试数据库" ..> [数据库管理工具] : 数据管理
+"测试数据库" ..> [测试数据管理] : 测试数据
+
+' 示例数据结构
+rectangle "测试请求实体" #FFFACD {
+    note as n3
+        **测试请求数据结构:**
+        • testId: String - 测试标识
+        • requestId: String - 请求标识
+        • timestamp: Long - 时间戳
+        • testType: TestType - 测试类型
+        • sourceIP: String - 来源IP
+        • targetEndpoint: String - 目标端点
+        • method: String - HTTP方法
+        • headers: Map<String, String> - 请求头
+        • testData: String - 测试数据
+        • expectedResult: String - 预期结果
+        • debugMode: Boolean - 调试模式
+        
+        **测试类型枚举:**
+        FUNCTIONAL_TEST, PERFORMANCE_TEST,
+        LOAD_TEST, STRESS_TEST, INTEGRATION_TEST
+        
+        **主要方法:**
+        • validateTestData(): Boolean - 验证测试数据
+        • generateMockResponse(): String - 生成模拟响应
+        • enableDebugLog(): void - 启用调试日志
+        • compareResult(): TestResult - 比较结果
+    end note
+}
+
+@enduml 

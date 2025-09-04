@@ -1,0 +1,121 @@
+@startuml Kmeter平台权限控制流程图
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor "运维人员" as Admin
+participant "权限控制接口" as API
+participant "数据库" as DB
+participant "Redis缓存" as Redis
+participant "Kmeter平台" as Kmeter
+actor "用户" as User
+
+== 大促前：禁用压测权限 ==
+
+alt 禁用所有用户
+    Admin -> API: POST /kmeter/permission_control\n{enable: false}
+    activate API
+    
+    API -> DB: 查询所有is_super=1的用户
+    activate DB
+    DB --> API: 返回有权限用户列表
+    deactivate DB
+    
+    API -> Redis: 存储有权限用户列表\n(key: kmeter_super_emails)
+    activate Redis
+    Redis --> API: 存储成功
+    deactivate Redis
+    
+    API -> DB: UPDATE user SET is_super = 0
+    activate DB
+    DB --> API: 更新成功
+    deactivate DB
+    
+    API --> Admin: 返回操作结果
+    deactivate API
+    
+else 禁用指定用户
+    Admin -> API: POST /kmeter/permission_control\n{user_list: [邮箱列表], enable: false}
+    activate API
+    
+    API -> DB: UPDATE user SET is_super = 0\nWHERE email IN (user_list)
+    activate DB
+    DB --> API: 更新成功
+    deactivate DB
+    
+    API --> Admin: 返回操作结果
+    deactivate API
+end
+
+== 用户尝试使用Kmeter ==
+
+User -> Kmeter: 登录并尝试执行压测
+activate Kmeter
+Kmeter -> DB: 检查用户权限\n(查询is_super字段)
+activate DB
+DB --> Kmeter: is_super = 0
+deactivate DB
+Kmeter --> User: 提示无权限执行压测
+deactivate Kmeter
+
+== 大促后：恢复压测权限 ==
+
+alt 恢复所有用户
+    Admin -> API: POST /kmeter/permission_control\n{enable: true}
+    activate API
+    
+    API -> Redis: 获取之前的权限用户列表\n(key: kmeter_super_emails)
+    activate Redis
+    Redis --> API: 返回用户列表
+    deactivate Redis
+    
+    API -> DB: UPDATE user SET is_super = 1\nWHERE email IN (kmeter_super_emails)
+    activate DB
+    DB --> API: 更新成功
+    deactivate DB
+    
+    API --> Admin: 返回操作结果
+    deactivate API
+    
+else 恢复指定用户
+    Admin -> API: POST /kmeter/permission_control\n{user_list: [邮箱列表], enable: true}
+    activate API
+    
+    API -> DB: UPDATE user SET is_super = 1\nWHERE email IN (user_list)
+    activate DB
+    DB --> API: 更新成功
+    deactivate DB
+    
+    API --> Admin: 返回操作结果
+    deactivate API
+end
+
+== 用户恢复使用Kmeter ==
+
+User -> Kmeter: 登录并尝试执行压测
+activate Kmeter
+Kmeter -> DB: 检查用户权限\n(查询is_super字段)
+activate DB
+DB --> Kmeter: is_super = 1
+deactivate DB
+Kmeter --> User: 允许执行压测
+deactivate Kmeter
+
+@enduml 

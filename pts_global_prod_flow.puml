@@ -1,0 +1,125 @@
+@startuml 产线环境Global站点压测链路
+skinparam defaultFontName "PingFang SC"
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 5
+skinparam maxMessageSize 150
+
+skinparam sequence {
+    ArrowColor #2C3E50
+    ActorBorderColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    LifeLineBackgroundColor #A9DCDF
+    
+    ParticipantBorderColor #2C3E50
+    ParticipantBackgroundColor #3498DB
+    ParticipantFontColor #FFFFFF
+    
+    ActorBackgroundColor #FEFEFE
+    ActorFontColor #333333
+    ActorFontSize 17
+    ActorFontName "PingFang SC"
+}
+
+actor "用户/PTS压测" as User
+participant "DNS" as DNS
+participant "Cloudflare(WAF)" as Cloudflare
+participant "ALB" as ALB
+participant "DataDome" as DataDome
+participant "Kong网关" as Kong
+participant "业务Pod" as BusinessPod
+
+== 产线环境Global站点压测链路 ==
+
+User -> DNS : 发起压测请求\n(域名解析)
+activate DNS
+DNS --> User : 返回IP地址
+deactivate DNS
+
+User -> Cloudflare : HTTP/HTTPS请求
+activate Cloudflare
+
+note right of Cloudflare
+  Web应用防火墙(WAF)
+  - DDoS防护
+  - 恶意请求过滤
+  - 安全规则检查
+end note
+
+Cloudflare -> Cloudflare : WAF安全检查
+alt 请求通过WAF检查
+    Cloudflare -> ALB : 转发请求到负载均衡器
+    activate ALB
+    
+    note right of ALB
+      应用负载均衡器
+      - 流量分发
+      - 健康检查
+      - SSL终结
+    end note
+    
+    ALB -> DataDome : 转发请求到反欺诈服务
+    activate DataDome
+    
+    note right of DataDome
+      反欺诈和机器人检测
+      - 行为分析
+      - 异常流量识别
+      - 恶意机器人拦截
+    end note
+    
+    DataDome -> DataDome : 流量分析和检测
+    
+    alt 通过反欺诈检测
+        DataDome -> Kong : 转发请求到API网关
+        activate Kong
+        
+        note right of Kong
+          API网关
+          - 路由转发
+          - 限流控制
+          - 认证鉴权
+          - 监控日志
+        end note
+        
+        Kong -> Kong : API路由和策略检查
+        Kong -> BusinessPod : 转发请求到业务服务
+        activate BusinessPod
+        
+        note right of BusinessPod
+          业务服务容器
+          - 业务逻辑处理
+          - 数据库操作
+          - 缓存访问
+        end note
+        
+        BusinessPod -> BusinessPod : 处理业务请求
+        BusinessPod --> Kong : 返回业务响应
+        deactivate BusinessPod
+        
+        Kong --> DataDome : 返回响应
+        deactivate Kong
+        
+        DataDome --> ALB : 返回响应
+        deactivate DataDome
+        
+        ALB --> Cloudflare : 返回响应
+        deactivate ALB
+        
+        Cloudflare --> User : 返回最终响应
+        deactivate Cloudflare
+        
+    else 被反欺诈系统拦截
+        DataDome --> ALB : 返回拦截响应
+        deactivate DataDome
+        ALB --> Cloudflare : 返回拦截响应
+        deactivate ALB
+        Cloudflare --> User : 返回拦截信息
+        deactivate Cloudflare
+    end
+    
+else 被WAF拦截
+    Cloudflare --> User : 返回WAF拦截信息
+    deactivate Cloudflare
+end
+
+@enduml 

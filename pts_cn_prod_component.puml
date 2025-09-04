@@ -1,0 +1,203 @@
+@startuml 产线环境CN站点架构图
+skinparam defaultFontName "PingFang SC"
+skinparam roundcorner 10
+skinparam shadowing false
+
+' 定义颜色方案
+skinparam component {
+    BackgroundColor #E8F4FD
+    BorderColor #2C3E50
+}
+
+skinparam package {
+    BackgroundColor #F8F9FA
+    BorderColor #2C3E50
+    FontColor #2C3E50
+    FontSize 14
+}
+
+skinparam node {
+    BackgroundColor #D5E8D4
+    BorderColor #82B366
+    FontColor #2C3E50
+}
+
+skinparam database {
+    BackgroundColor #FFF2CC
+    BorderColor #D6B656
+}
+
+skinparam cloud {
+    BackgroundColor #FFE6CC
+    BorderColor #D79B00
+}
+
+' 客户端层
+package "客户端层" #FFE6CC {
+    [PTS压测工具] #FFF2CC
+    [压测脚本] #FFF2CC
+    
+    note right of [PTS压测工具]
+        阿里云PTS性能测试
+        - 中国区域压测节点
+        - 本土化测试场景
+        - 合规性监控
+    end note
+}
+
+' DNS层
+cloud "DNS解析层" #E1D5E7 {
+    [中国DNS服务] #D5A6BD
+    
+    note right of [中国DNS服务]
+        国内DNS解析
+        - 智能DNS解析
+        - 运营商线路优化
+        - 备案域名解析
+    end note
+}
+
+' 安全防护层
+package "安全防护层" #FADBD8 {
+    component [DCND WAF] #F1948A
+    interface "HTTP/HTTPS" as dcnd_in
+    interface "安全过滤" as dcnd_out
+    
+    note right of [DCND WAF]
+        DCND Web应用防火墙
+        - CC攻击防护
+        - SQL注入防护
+        - XSS攻击防护
+        - 恶意爬虫拦截
+        - 中国区域威胁情报
+    end note
+}
+
+' 负载均衡层
+package "负载均衡层" #D5E8D4 {
+    component [ALB应用负载均衡] #82B366
+    interface "L7负载均衡" as alb_in
+    interface "应用层分发" as alb_out
+    
+    component [NLB网络负载均衡] #A9DFBF
+    interface "L4负载均衡" as nlb_in
+    interface "网络层分发" as nlb_out
+    
+    note right of [ALB应用负载均衡]
+        应用负载均衡器
+        - HTTP/HTTPS协议
+        - 基于内容的路由
+        - SSL卸载
+    end note
+    
+    note right of [NLB网络负载均衡]
+        网络负载均衡器
+        - TCP/UDP协议
+        - 超高性能
+        - 静态IP支持
+    end note
+}
+
+' API网关层
+package "API网关层" #EBF5FB {
+    component [Kong网关] #5DADE2
+    interface "API管理" as kong_in
+    interface "服务路由" as kong_out
+    
+    note right of [Kong网关]
+        Kong API网关
+        - 微服务路由
+        - 限流熔断
+        - 安全认证
+        - 插件扩展
+        - 中国区域优化
+    end note
+}
+
+' 业务服务层
+package "业务服务层" #E8F8F5 {
+    node "阿里云容器服务" #A9DFBF {
+        component [用户服务Pod] #58D68D
+        component [订单服务Pod] #58D68D
+        component [支付服务Pod] #58D68D
+        component [商品服务Pod] #58D68D
+        
+        database "RDS数据库" #F7DC6F
+        database "Redis缓存" #EC7063
+        database "RocketMQ" #BB8FCE
+        database "OSS存储" #AED6F1
+    }
+    
+    note right of [用户服务Pod]
+        微服务容器
+        - 中国区域部署
+        - 数据本地化
+        - 合规性要求
+        - 高可用架构
+    end note
+}
+
+' 监控层
+package "监控运维层" #F4ECF7 {
+    [ARMS监控] #D2B4DE
+    [日志服务SLS] #BB8FCE
+    [云监控] #AED6F1
+    
+    note right of [ARMS监控]
+        应用实时监控
+        - 性能监控
+        - 链路追踪
+        - 异常告警
+    end note
+}
+
+' 连接关系
+[PTS压测工具] --> [中国DNS服务] : 域名解析
+[中国DNS服务] --> dcnd_in : 访问请求
+
+dcnd_out --> alb_in : ALB路径
+dcnd_out --> nlb_in : NLB路径
+
+alb_out --> kong_in : HTTP/HTTPS流量
+nlb_out --> kong_in : TCP/UDP流量
+
+kong_out --> [用户服务Pod] : 用户相关请求
+kong_out --> [订单服务Pod] : 订单相关请求
+kong_out --> [支付服务Pod] : 支付相关请求
+kong_out --> [商品服务Pod] : 商品相关请求
+
+[用户服务Pod] --> "RDS数据库" : 用户数据
+[订单服务Pod] --> "RDS数据库" : 订单数据
+[支付服务Pod] --> "Redis缓存" : 缓存访问
+[商品服务Pod] --> "OSS存储" : 商品图片
+
+[用户服务Pod] --> "RocketMQ" : 消息发送
+[订单服务Pod] --> "RocketMQ" : 消息消费
+
+' 监控连接
+[用户服务Pod] ..> [ARMS监控] : 监控数据
+[订单服务Pod] ..> [日志服务SLS] : 日志收集
+[支付服务Pod] ..> [云监控] : 指标上报
+
+' 示例数据结构
+rectangle "CN站点请求实体" #FFFACD {
+    note as n2
+        **CN站点请求数据结构:**
+        • requestId: String - 请求标识
+        • timestamp: Long - 时间戳
+        • clientIP: String - 客户端IP
+        • region: String - 区域信息
+        • targetService: String - 目标服务
+        • method: String - HTTP方法
+        • headers: Map<String, String> - 请求头
+        • payload: String - 请求载荷
+        • traceId: String - 链路追踪ID
+        
+        **主要方法:**
+        • isCompliant(): Boolean - 合规性检查
+        • getRegionRoute(): String - 获取区域路由
+        • validateSecurity(): Boolean - 安全验证
+    end note
+}
+
+@enduml 

@@ -1,0 +1,86 @@
+@startuml 全链路压测流程图
+
+participant "测试团队" as Test
+participant "运维团队" as Ops
+participant "开发团队" as Dev
+participant "PTS压测平台" as PTS
+participant "PTEST环境" as ENV
+participant "监控系统" as Monitor
+
+== 压测前准备阶段 ==
+
+note over Test, Monitor : 压测计划制定
+Test -> Test : 制定压测计划\n(目标、范围、时间窗口)
+Test -> Test : 确认压测时间\n(大促前1-2周)
+Test -> Test : 设计压测场景\n(基于历史数据)
+Test -> Test : 编写压测脚本
+
+note over Test, Monitor : 环境准备
+par 并行环境准备
+    Ops -> ENV : 搭建PTEST环境\n(网络、安全组配置)
+    Ops -> ENV : 准备数据库\n(RDS、Redis、MongoDB等)
+    Ops -> Monitor : 部署监控组件\n(Prometheus、Grafana)
+    Ops -> ENV : 配置网络安全\n(LB、IP限制)
+end
+
+Ops -> ENV : 环境可用性检查
+ENV -> Ops : 删除上次压测数据
+Ops -> ENV : 同步DB表结构和数据
+Ops -> ENV : 同步UAT环境KV配置
+Ops -> ENV : 部署服务\n(CPU/内存与产线一致)
+Dev -> ENV : 开启火焰图开关
+Test -> ENV : 准备压测数据
+
+ENV -> Ops : 环境准备完成
+
+== 压测执行阶段 ==
+
+note over Test, Monitor : 压测执行
+Ops -> ENV : 启动PTEST环境
+Test -> PTS : 配置压测平台
+PTS -> Test : 配置完成
+
+Test -> PTS : 小流量试跑
+PTS -> ENV : 发送测试流量
+ENV -> Monitor : 收集性能指标
+Monitor -> Test : 返回监控数据
+
+Test -> PTS : 阶梯递增压测
+loop 分段递增
+    PTS -> ENV : 发送压测流量
+    ENV -> Monitor : 实时性能数据
+    Monitor -> Test : 监控指标反馈
+    Test -> Test : 分析当前阶段结果
+end
+
+Test -> PTS : 全链路压测
+PTS -> ENV : 发送峰值流量
+ENV -> Monitor : 收集完整性能数据
+Monitor -> Test : 实时监控反馈
+
+== 压测结果分析阶段 ==
+
+note over Test, Monitor : 数据分析和报告
+Test -> Monitor : 收集性能数据\n(响应时间、吞吐量、错误率)
+Monitor -> Test : 返回完整监控数据
+Test -> Test : 瓶颈分析\n(火焰图分析)
+
+note over Test, Monitor : 问题修复和优化
+Test -> Dev : 提交性能问题报告
+Dev -> Dev : 代码优化
+Dev -> Ops : 数据库优化建议
+Ops -> Ops : 缓存策略调整
+Test -> Ops : 容量规划建议
+
+note over Test, Monitor : 环境清理和准备
+Ops -> ENV : 关闭PTEST环境
+Ops -> Ops : 应用优化到生产环境
+Ops -> Monitor : 更新生产监控配置
+Test -> Test : 制定应急预案
+
+note over Test, Monitor : 文档和知识沉淀
+Test -> Test : 编写压测报告
+Test -> Test : 经验总结
+Test -> Test : 优化压测流程
+
+@enduml

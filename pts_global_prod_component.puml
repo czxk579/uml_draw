@@ -1,0 +1,179 @@
+@startuml 产线环境Global站点架构图
+skinparam defaultFontName "PingFang SC"
+skinparam roundcorner 10
+skinparam shadowing false
+
+' 定义颜色方案
+skinparam component {
+    BackgroundColor #E8F4FD
+    BorderColor #2C3E50
+}
+
+skinparam package {
+    BackgroundColor #F8F9FA
+    BorderColor #2C3E50
+    FontColor #2C3E50
+    FontSize 14
+}
+
+skinparam node {
+    BackgroundColor #D5E8D4
+    BorderColor #82B366
+    FontColor #2C3E50
+}
+
+skinparam database {
+    BackgroundColor #FFF2CC
+    BorderColor #D6B656
+}
+
+skinparam cloud {
+    BackgroundColor #FFE6CC
+    BorderColor #D79B00
+}
+
+' 客户端层
+package "客户端层" #FFE6CC {
+    [PTS压测工具] #FFF2CC
+    [测试脚本] #FFF2CC
+    
+    note right of [PTS压测工具]
+        阿里云性能测试服务
+        - 模拟高并发请求
+        - 压力测试场景
+        - 性能监控分析
+    end note
+}
+
+' DNS层
+cloud "DNS解析层" #E1D5E7 {
+    [DNS服务器] #D5A6BD
+    
+    note right of [DNS服务器]
+        域名解析服务
+        - 域名到IP地址映射
+        - 负载均衡DNS
+        - 地理位置路由
+    end note
+}
+
+' 安全防护层
+package "安全防护层" #FADBD8 {
+    component [Cloudflare WAF] #F1948A
+    interface "HTTP/HTTPS" as cf_in
+    interface "过滤后请求" as cf_out
+    
+    note right of [Cloudflare WAF]
+        Web应用防火墙
+        - DDoS攻击防护
+        - SQL注入防护
+        - XSS攻击防护
+        - 恶意IP拦截
+        - 自定义安全规则
+    end note
+}
+
+' 负载均衡层
+package "负载均衡层" #D5E8D4 {
+    component [ALB应用负载均衡器] #82B366
+    interface "负载均衡入口" as alb_in
+    interface "分发请求" as alb_out
+    
+    note right of [ALB应用负载均衡器]
+        应用负载均衡器
+        - HTTP/HTTPS负载均衡
+        - SSL/TLS终结
+        - 健康检查
+        - 会话保持
+        - 多可用区部署
+    end note
+}
+
+' 反欺诈层
+package "反欺诈层" #FCF3CF {
+    component [DataDome] #F7DC6F
+    interface "流量检测入口" as dd_in
+    interface "验证后流量" as dd_out
+    
+    note right of [DataDome]
+        反欺诈和机器人检测
+        - 实时行为分析
+        - 机器学习检测
+        - 异常流量识别
+        - 恶意机器人拦截
+        - 威胁情报集成
+    end note
+}
+
+' API网关层
+package "API网关层" #EBF5FB {
+    component [Kong网关] #5DADE2
+    interface "API入口" as kong_in
+    interface "路由转发" as kong_out
+    
+    note right of [Kong网关]
+        API网关服务
+        - 服务路由和发现
+        - 限流和熔断
+        - 认证和鉴权
+        - 插件生态系统
+        - 监控和日志
+    end note
+}
+
+' 业务服务层
+package "业务服务层" #E8F8F5 {
+    node "Kubernetes集群" #A9DFBF {
+        component [业务Pod1] #58D68D
+        component [业务Pod2] #58D68D
+        component [业务Pod3] #58D68D
+        
+        database "数据库" #F7DC6F
+        database "缓存Redis" #EC7063
+        database "消息队列" #BB8FCE
+    }
+    
+    note right of [业务Pod1]
+        业务服务容器
+        - 微服务架构
+        - 容器化部署
+        - 自动伸缩
+        - 服务网格
+        - 监控告警
+    end note
+}
+
+' 连接关系
+[PTS压测工具] --> [DNS服务器] : 域名解析
+[DNS服务器] --> cf_in : IP地址访问
+cf_out --> alb_in : 通过WAF检查
+alb_out --> dd_in : 负载均衡分发
+dd_out --> kong_in : 反欺诈验证
+kong_out --> [业务Pod1] : 路由转发
+kong_out --> [业务Pod2]
+kong_out --> [业务Pod3]
+
+[业务Pod1] --> "数据库" : 数据访问
+[业务Pod2] --> "缓存Redis" : 缓存读写
+[业务Pod3] --> "消息队列" : 异步消息
+
+' 示例数据结构
+rectangle "压测请求实体" #FFFACD {
+    note as n1
+        **压测请求数据结构:**
+        • requestId: String - 请求标识
+        • timestamp: Long - 时间戳
+        • sourceIP: String - 来源IP
+        • targetURL: String - 目标URL
+        • method: String - HTTP方法
+        • headers: Map<String, String> - 请求头
+        • body: String - 请求体
+        • userId: String - 用户ID
+        
+        **主要方法:**
+        • validate(): Boolean - 验证请求
+        • getRoutingKey(): String - 获取路由键
+    end note
+}
+
+@enduml 
