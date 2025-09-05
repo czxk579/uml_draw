@@ -47,3 +47,10 @@ https://mp.weixin.qq.com/s/glyPx_QOOBm0keug0bCBMg
 - 如果要生成支持 draw.io 的 Mermaid 能够成功识别语法代码，需要生成的是 .mmd 文件
 - 如果要生成 plantuml 语法代码，需要生成的是 .puml 文件，这种格式的文件可以直接导入到 lark 的画板中
 ![alt text](image.png)
+- plantuml 支持的图表类型:
+  - https://zhuanlan.zhihu.com/p/1898385857028789883
+- plantuml 图表应用场景
+需求分析阶段：用例图、活动图
+系统设计阶段：类图、对象图、序列图
+实现阶段：组件图、部署图
+测试阶段：状态图、时序图

@@ -1,0 +1,97 @@
+@startuml 全链路压测流程活动图
+
+start
+
+partition 压测准备 {
+:制定压测计划;
+note right
+  - 明确压测目标、范围、时间窗口
+  - 确认压测时间
+  - 设计压测场景
+  - 编写压测脚本
+end note
+
+partition 环境准备 {
+  :PTEST压测环境搭建(一次性工作);
+  note right
+    - 监控配置
+    - 自建数据库
+    - 网络安全配置
+  end note
+
+  :PTEST环境启动;
+  note right
+    - 同步测试数据
+    - KV管理
+    - 服务部署
+  end note
+
+  :压测数据准备;
+  note right
+    - 确保PTEST环境正常运行(业务保证)
+    - 业务线造数
+    - 确保测试数据的准确性和完整性
+  end note
+}
+}
+
+partition 压测执行 {
+:环境启动检查;
+
+if (环境是否正常?) then (否)
+  :修复环境问题;
+  -> 重新检查;
+else (是)
+endif
+
+:配置压测工具;
+note right: 配置PTS压测平台
+
+:小流量试跑;
+
+if (试跑结果是否正常?) then (否)
+  :调整配置;
+  -> 重新试跑;
+else (是)
+endif
+
+if (选择压测类型) then (核心链路压测)
+  :执行核心链路压测;
+else (全链路压测)
+  :执行全链路压测;
+endif
+
+:实时监控;
+note right: 观察系统各项指标
+}
+
+partition 压测后处理 {
+  fork
+    :性能数据收集;
+    note right
+      - 响应时间、吞吐量、错误率
+      - 系统资源使用情况
+      - 数据库性能指标
+    end note
+  fork again
+    :瓶颈分析;
+    note right
+      - 识别性能瓶颈点
+      - 分析火焰图数据
+      - 定位问题根因
+    end note
+  end fork
+
+  :性能优化;
+  note right
+    - 代码优化
+    - 数据库优化
+    - 架构优化
+  end note
+}
+
+:生成压测报告;
+
+stop
+
+@enduml
